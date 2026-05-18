@@ -1,65 +1,71 @@
 # Knowledge Uncertainty: The Rashomon Effect in Machine Learning
 
-> **When many models are equally accurate, which model should we trust?**
+> **When many models look equally good, which decision is actually justified?**
 >
-> This repository is a narrative research artifact connecting a line of work on the **Rashomon effect**, **predictive multiplicity**, and **hidden disagreement** across models, decisions, and circuits.
+> A research portfolio on the **Rashomon effect**, **predictive multiplicity**, and **hidden disagreement** across models, decisions, explanations, and circuits.
 
-Modern machine learning evaluation is built around averages. We report accuracy, AUC, loss, privacy budgets, fairness gaps, or attack success rates. These numbers are useful, but they hide a deeper question:
+Modern ML evaluation is built around averages: accuracy, AUC, loss, fairness gaps, privacy budgets, refusal rates, and attack success rates. These metrics are useful, but they can hide a more uncomfortable failure mode:
 
-**What if there are many models that look equally good by these metrics, but make different decisions for the same person, subgroup, prompt, or behavior?**
+> **Two models can look equally good by every aggregate metric, yet make different decisions for the same person, subgroup, prompt, or behavior.**
 
-This is the problem of **knowledge uncertainty**. Not uncertainty in the usual sense of a single model being unsure about its prediction, but uncertainty over *which equally valid model, decision, or mechanism the learning process could have produced*.
+This is **knowledge uncertainty**. It is not the usual uncertainty of a single model being unsure about its prediction. It is uncertainty over *which equally valid model, decision, explanation, or internal mechanism the learning process could have produced*.
 
-The classical name for this phenomenon is the **Rashomon effect**: many different models can explain the same data nearly equally well. In classification, this becomes **predictive multiplicity**: models with nearly indistinguishable performance can still disagree on individual predictions. In high-stakes settings, that disagreement is not just a technical curiosity. It can determine who receives a loan, who is flagged as high risk, who benefits from a fairness intervention, or whether a safety behavior in a language model is robust or fragile.
+The classical name for this phenomenon is the **Rashomon effect**: many different models can explain the same data nearly equally well. In classification, this becomes **predictive multiplicity**: near-equally accurate models can still disagree on individual predictions. In high-stakes settings, that disagreement is not just a technical detail. It can determine who receives a loan, who is flagged as high risk, who is harmed or helped by a fairness intervention, or whether a language model's safety behavior is stable or fragile.
 
-This repository tells the story of a research line that starts from one question:
+This repository tells the story of a research line built around one question:
 
-> **If many models are equally accurate, what makes one decision more justified than another?**
-
-It then follows that question across five settings: probabilistic classification, privacy, fairness, neural networks, gradient boosting, and finally LLM circuits.
+> **If many models are equally accurate, what makes one decision more defensible than another?**
 
 ---
 
-## The research arc
+## The arc in one picture
 
-The projects in this repository are not isolated papers. They form a progression.
-
-First, we need to **measure** multiplicity. If equally accurate models disagree, how much do they disagree, and for whom?
-
-Then, we need to understand where multiplicity comes from. It can be amplified by mechanisms that are normally considered responsible, such as differential privacy and group fairness interventions.
-
-Next, we need to make multiplicity auditing practical. Exploring the full Rashomon set is usually impossible, so we need efficient ways to find many near-equally-good models without repeatedly retraining from scratch.
-
-Finally, in modern language models, the same idea becomes mechanistic: even when outputs look similar, the internal circuits that support those outputs may differ. The Rashomon effect may exist not only across models and decisions, but also across explanations and mechanisms.
+The line of work progresses from **measurement** to **hidden costs**, then to **efficient exploration**, **practical model families**, and finally **mechanistic multiplicity** in language models.
 
 ```mermaid
 flowchart LR
-    A[Measure multiplicity<br/>Rashomon Capacity] --> B[Audit hidden costs<br/>Privacy and fairness]
-    B --> C[Scale exploration<br/>Dropout Rashomon]
-    C --> D[Practical model families<br/>RashomonGB]
-    D --> E[Mechanistic multiplicity<br/>Rashomon Circuit]
-    A --> E
+    A[Rashomon Capacity<br/>Measure multiplicity] --> B[DP Multiplicity<br/>Privacy can amplify arbitrariness]
+    A --> C[Fairness & Arbitrariness<br/>Fairness can hide individual instability]
+    A --> D[Dropout Rashomon<br/>Explore Rashomon sets efficiently]
+    D --> E[RashomonGB<br/>Analyze & mitigate boosting multiplicity]
+    A --> F[Rashomon Circuit<br/>Move from output disagreement to circuit drift]
+    C --> F
+    D --> F
 ```
+
+The progression is simple:
+
+1. **Measure it.** How much can near-equivalent models disagree?
+2. **Audit it.** Do privacy or fairness interventions introduce hidden arbitrariness?
+3. **Scale it.** How can we explore large Rashomon sets without retraining many models?
+4. **Deploy it.** How does multiplicity appear in widely used model families such as gradient boosting?
+5. **Mechanize it.** Can the same instability appear inside LLM circuits, not just in outputs?
+
+---
+
+## Why average metrics are not enough
+
+A model can have excellent average performance and still be hard to justify for a particular individual. If another model with the same accuracy, same privacy guarantee, or same fairness metric would have made a different decision, then the deployed decision is partly determined by arbitrary choices: a random seed, a privacy-noise draw, a fairness post-processing path, a dropout mask, a boosting trajectory, or a prompt transformation.
+
+This is the core deployment risk:
+
+> **Aggregate metrics can certify the system while leaving individual decisions, explanations, and mechanisms unstable.**
+
+Knowledge uncertainty treats this instability as a first-class object of evaluation.
 
 ---
 
 ## 1. Measuring multiplicity: Rashomon Capacity
 
-The starting point is simple: two classifiers may have the same accuracy but output different probabilities for the same example. Existing multiplicity metrics often focus on thresholded decisions, such as whether two models assign different labels. That matters, but it can miss a more fine-grained form of instability.
+The first step is to measure how much near-equivalent models can disagree.
 
-A probabilistic classifier does not only say “yes” or “no.” It outputs a score vector. Two models may agree after thresholding but still disagree substantially in confidence. That score-level disagreement matters because thresholds can change, downstream decisions can depend on calibrated probabilities, and stakeholders may care about the range of plausible predictions.
+Most early multiplicity metrics focus on hard decisions: do two models predict different labels? But probabilistic classifiers output scores, not only labels. Two models may agree after thresholding while assigning very different probabilities to the same individual. This matters because thresholds can change, downstream decisions may use confidence scores, and stakeholders may care about the range of plausible outcomes.
 
-**Rashomon Capacity** was introduced to measure this score-level multiplicity. It treats the output of competing probabilistic classifiers as points in the probability simplex and asks how much variation the Rashomon set permits for a target input.
+**Rashomon Capacity** measures score-level predictive multiplicity in the probability simplex. It asks:
 
-The key shift is from asking:
+> **How much room is there for equally accurate probabilistic classifiers to disagree about this input?**
 
-> Do two models make different hard decisions?
-
-To asking:
-
-> How much room is there for equally accurate models to disagree about this individual?
-
-This establishes the measurement foundation for the rest of the research line. Once multiplicity can be quantified, it can be audited, disclosed, and eventually mitigated.
+This work establishes the measurement foundation for the rest of the line: once multiplicity is quantifiable, it can be audited, disclosed, and mitigated.
 
 **Paper:** [Rashomon Capacity: Measuring Predictive Multiplicity in Probabilistic Classification](https://proceedings.neurips.cc/paper_files/paper/2022/file/ba4caa85ecdcafbf9102ab8ec384182d-Paper-Conference.pdf)  
 **Code:** [HsiangHsu/rashomon-capacity](https://github.com/HsiangHsu/rashomon-capacity)
@@ -68,60 +74,65 @@ This establishes the measurement foundation for the rest of the research line. O
 
 ## 2. Privacy can make decisions more arbitrary
 
-Differential privacy is usually presented as a trade-off between privacy and accuracy. To protect sensitive training data, private training algorithms inject randomness into learning. That randomness is necessary for privacy, but it also means that the same dataset, model class, and privacy level can produce different models.
+Differential privacy is usually framed as a trade-off between privacy and accuracy. Private training algorithms inject randomness to protect sensitive data. That randomness is necessary, but it can also create multiple equally private, similarly accurate models.
 
-The question is whether those different private models merely differ internally, or whether they disagree on individual decisions.
+**Arbitrary Decisions are a Hidden Cost of Differentially Private Training** shows that privacy-preserving randomness can increase predictive multiplicity. As privacy becomes stronger, models with the same privacy guarantee and comparable accuracy can disagree more often, and this disagreement can be unevenly distributed across individuals and demographic groups.
 
-**Arbitrary Decisions are a Hidden Cost of Differentially Private Training** shows that privacy-preserving randomization can increase predictive multiplicity. As privacy becomes stronger, equally private and similarly accurate models can disagree more often, and this burden can be unevenly distributed across individuals and demographic groups.
+The usual two-axis view is incomplete:
 
-This adds a third axis to the usual privacy discussion:
+```text
+privacy  ↔  accuracy
+```
+
+This work adds a third axis:
 
 ```text
 privacy  ↔  accuracy  ↔  arbitrariness
 ```
 
-The point is not that differential privacy is undesirable. The point is that privacy-preserving training can introduce a hidden decision cost that average accuracy does not reveal. A model can satisfy a formal privacy guarantee and still produce decisions that are difficult to justify for individuals because another equally private, equally accurate model would have decided differently.
+The point is not that differential privacy is undesirable. The point is that privacy-preserving training should be audited not only for accuracy loss, but also for whether it makes individual decisions harder to justify.
 
-**Paper:** [Arbitrary Decisions are a Hidden Cost of Differentially Private Training](https://dl.acm.org/doi/pdf/10.1145/3593013.3594103)
+**Paper:** [Arbitrary Decisions are a Hidden Cost of Differentially Private Training](https://dl.acm.org/doi/pdf/10.1145/3593013.3594103)  
+**Code:** [spring-epfl/dp_multiplicity](https://github.com/spring-epfl/dp_multiplicity)
 
 ---
 
 ## 3. Fairness can hide individual arbitrariness
 
-Group fairness interventions are usually evaluated with two metrics: accuracy and a group fairness violation. If the fairness gap decreases while accuracy remains acceptable, the intervention is often considered successful.
+Group fairness interventions are typically evaluated on two dimensions: accuracy and group fairness violation. If the fairness gap improves while accuracy remains acceptable, the intervention may look successful.
 
-But this view misses an important question:
+But there is a missing question:
 
-> Do fair and accurate models make consistent decisions for the same individual?
+> **Do fair and accurate models make consistent decisions for the same individual?**
 
-**Individual Arbitrariness and Group Fairness** shows that fairness interventions can improve group-level fairness metrics while increasing predictive multiplicity. In other words, the fairness-accuracy frontier can hide individual instability.
+**Individual Arbitrariness and Group Fairness** shows that fairness interventions can improve group-level metrics while increasing individual-level arbitrariness. The fairness-accuracy frontier can therefore hide a third dimension: predictive multiplicity.
 
-This is counterintuitive at first. One might expect fairness constraints to shrink the space of acceptable models and therefore reduce disagreement. But group fairness constraints can create multiple routes to satisfying aggregate fairness. Different models can satisfy the same group-level constraint by changing decisions for different individuals.
+This is subtle. Fairness constraints do not necessarily make decisions more stable. They can create multiple routes to satisfying the same aggregate fairness condition, and different routes may shift decisions for different individuals.
 
-This motivates a broader view of responsible ML. A deployed model should not only be accurate and group-fair. It should also avoid unnecessary individual-level arbitrariness.
+A stronger responsible-ML target is therefore:
 
 ```text
-accuracy + group fairness is not enough
-accuracy + group fairness + non-arbitrariness is the stronger target
+accuracy + group fairness + non-arbitrariness
 ```
 
-The paper also studies ensembling as a mitigation strategy: by combining competing models, one can reduce disagreement while preserving fairness and accuracy.
+The work also studies ensembling as a mitigation strategy: combining competing models can reduce disagreement while preserving fairness and accuracy.
 
-**Paper:** [Individual Arbitrariness and Group Fairness](https://proceedings.neurips.cc/paper_files/paper/2023/file/d891d240b5784656a0356bf4b00f5cdd-Paper-Conference.pdf)
+**Paper:** [Individual Arbitrariness and Group Fairness](https://proceedings.neurips.cc/paper_files/paper/2023/file/d891d240b5784656a0356bf4b00f5cdd-Paper-Conference.pdf)  
+**Code:** [Carol-Long/Fairness_and_Arbitrariness](https://github.com/Carol-Long/Fairness_and_Arbitrariness)
 
 ---
 
 ## 4. Making Rashomon set exploration practical with dropout
 
-Once predictive multiplicity matters, a practical problem appears immediately: to measure it, we need access to many models in the Rashomon set. But the Rashomon set can be enormous, and repeatedly retraining neural networks with different random seeds is expensive.
+Once multiplicity matters, the next bottleneck is computational: measuring predictive multiplicity requires many models in the Rashomon set, but repeatedly retraining neural networks is expensive.
 
-**Dropout-Based Rashomon Set Exploration** addresses this computational bottleneck. The idea is to use inference-time dropout as a way to generate many competing models around a trained neural network. Instead of retraining from scratch, dropout masks induce a family of nearby models. With appropriate parameter choices, these models can remain within a near-optimal loss region and therefore serve as an empirical Rashomon set.
+**Dropout-Based Rashomon Set Exploration** turns inference-time dropout into an efficient Rashomon set exploration tool. Instead of training many models from scratch, dropout masks induce a family of nearby models around a trained neural network. With the right parameter choices, these dropout-induced models remain near-optimal and can be used to estimate predictive multiplicity.
 
-The conceptual move is important. Dropout is not treated merely as regularization or Bayesian uncertainty approximation. It becomes a tool for exploring near-equally-performing models.
+The key conceptual shift is:
 
-This shifts multiplicity auditing from a heavy retraining procedure to a lightweight inference-time procedure.
+> **Dropout is not only a regularizer or uncertainty estimator; it can be an efficient probe of near-equivalent models.**
 
-The repository implements multiple exploration and evaluation strategies, including retraining, dropout, adversarial weight perturbation, and several predictive multiplicity metrics.
+This makes multiplicity auditing much more practical for neural networks.
 
 **Paper:** [Dropout-Based Rashomon Set Exploration for Efficient Predictive Multiplicity Estimation](https://proceedings.iclr.cc/paper_files/paper/2024/file/8cd1ce03ea58b3d7dfd809e4d42f08ea-Paper-Conference.pdf)  
 **Code:** [jpmorganchase/dropout-rashomon-set-exploration](https://github.com/jpmorganchase/dropout-rashomon-set-exploration)
@@ -130,75 +141,76 @@ The repository implements multiple exploration and evaluation strategies, includ
 
 ## 5. RashomonGB: multiplicity in gradient boosting
 
-Neural networks are not the only models where multiplicity matters. In many real-world tabular applications, especially in finance, healthcare, insurance, and risk modeling, gradient boosting remains one of the most important model families.
+Neural networks are not the only place multiplicity matters. In finance, healthcare, insurance, fraud detection, and risk modeling, gradient boosting remains one of the most important model families.
 
-**RashomonGB** studies the Rashomon effect in gradient boosting. The key observation is that boosting is sequential: a final model is built by adding weak learners that fit residuals stage by stage. This structure creates a natural way to analyze multiplicity. Instead of treating the boosted model as one monolithic predictor, RashomonGB studies the residual Rashomon sets that arise at different boosting stages.
+**RashomonGB** studies predictive multiplicity in gradient boosting. Boosting is sequential: a final predictor is built by adding weak learners that fit residuals stage by stage. This structure creates a natural way to inspect multiplicity through residual Rashomon sets.
 
-This gives a structured view of why multiple boosted models can achieve similar performance while making different predictions.
+The contribution is both analytic and practical:
 
-It also moves the research line from measurement toward mitigation. If we can efficiently inspect the Rashomon effect in gradient boosting, we can also select or combine models to reduce predictive multiplicity while preserving performance and fairness.
+- it explains how multiple boosted models can achieve similar performance while making different individual predictions;
+- it provides an efficient way to inspect an exponentially large space of boosted models;
+- it studies mitigation strategies that reduce predictive multiplicity while preserving performance and fairness.
+
+This extends the agenda from abstract measurement to practical deployment settings where tabular models dominate.
 
 **Paper:** [RashomonGB: Analyzing the Rashomon Effect and Mitigating Predictive Multiplicity in Gradient Boosting](https://proceedings.neurips.cc/paper_files/paper/2024/file/dbd07478c4aac41c0ce411e12f2e5a28-Paper-Conference.pdf)
 
 ---
 
-## 6. Rashomon Circuit: from prediction instability to mechanistic instability
+## 6. Rashomon Circuit: from output disagreement to mechanistic disagreement
 
-The next step is to move beyond classical predictive models.
+The final step is to ask whether the Rashomon effect exists not only across model outputs, but also inside the mechanisms that produce them.
 
-In large language models, we often care not only about whether a model gives a safe or unsafe answer, but also about *how* that behavior is implemented internally. Two prompts may produce similar outputs while relying on different internal features. Conversely, a perturbation may dramatically change internal activations without producing a meaningful behavioral failure.
+In language models, we care not only about whether the model gives a safe answer, but also about how that behavior is implemented. A model may refuse a harmful request under one prompt, but rely on internal features that drift or collapse under a transformation.
 
-This motivates a circuit-level version of the Rashomon question:
+**Rashomon Circuit** explores this mechanistic version of the Rashomon question:
 
-> Can there be many internal mechanisms that support similar behavior, and can those mechanisms disagree or drift under prompt transformations?
+> **Can similar safety behavior be supported by unstable internal circuits?**
 
-**Rashomon Circuit** explores this question in the context of jailbreak behavior. It studies prompt transformations such as bijection attacks and measures how sparse autoencoder feature fingerprints change across original and transformed prompts.
+The demo studies character-level prompt transformations and measures sparse autoencoder feature fingerprints before and after transformation. It distinguishes three regimes:
 
-The important distinction is that not all drift means the same thing. Under a perturbation, a model response can fall into at least three regimes:
+1. **Stable safety:** the response remains safe and feature fingerprints remain stable.
+2. **Jailbreak drift:** safety behavior erodes and internal features drift.
+3. **Prompt destruction:** the transformation breaks the prompt, so drift reflects semantic collapse rather than successful jailbreak.
 
-1. **Stable safety:** the model remains safe and the relevant feature fingerprints remain stable.
-2. **Jailbreak drift:** the safety behavior erodes and the circuit fingerprint changes.
-3. **Prompt destruction:** the perturbation is so strong that the model no longer understands the input, so circuit drift reflects broken semantics rather than a successful jailbreak.
-
-This turns the Rashomon effect into a mechanistic safety lens. The question is no longer only whether equally accurate models disagree. It is whether apparently similar behaviors are supported by stable or unstable internal mechanisms.
+The key lesson is that high circuit drift is not automatically evidence of jailbreak success. It may indicate genuine refusal erosion, but it may also indicate prompt breakage. This turns Rashomon analysis into a mechanistic safety audit: not only *did the output change?*, but *did the underlying mechanism remain stable?*
 
 **Code:** [HsiangHsu/rashomon-circuit](https://github.com/HsiangHsu/rashomon-circuit)
 
 ---
 
-## The unifying thesis
+## What this line of work argues
 
-Across these projects, the central thesis is:
+Across these projects, the thesis is:
 
-> **Good aggregate performance can hide unstable decisions, unstable mechanisms, and unstable explanations.**
+> **Good aggregate performance can hide unstable decisions, unstable explanations, and unstable mechanisms.**
 
-The Rashomon effect reveals that a model prediction is not always a uniquely determined consequence of the data. Sometimes it is the result of arbitrary choices in the learning pipeline: random seeds, privacy noise, fairness constraints, dropout masks, boosting paths, or prompt transformations.
+The Rashomon effect shows that model behavior is often not uniquely determined by data and objective alone. It can depend on arbitrary choices in the learning or evaluation pipeline.
 
-This is why I frame this research line as **Knowledge Uncertainty**.
+Knowledge uncertainty asks us to evaluate not only whether a system performs well on average, but also whether its decisions and mechanisms are stable across near-equivalent alternatives.
 
-A machine learning system may appear to “know” something because it performs well on average. But if many equally valid models or circuits would act differently, then the system's knowledge is less stable than aggregate metrics suggest.
+This connects questions that are often treated separately:
 
-This perspective connects several questions that are often studied separately:
-
-- **Fairness:** Are group-level improvements hiding individual-level instability?
-- **Privacy:** Does privacy-preserving randomness make decisions harder to justify?
-- **Interpretability:** Are explanations stable across equally good models?
-- **Robustness:** Are decisions stable under perturbations and model-selection choices?
-- **AI safety:** Are refusal and safety behaviors implemented by stable internal circuits or fragile alternatives?
+| Area | Rashomon question |
+|---|---|
+| **Fairness** | Are group-level improvements hiding individual-level instability? |
+| **Privacy** | Does privacy-preserving randomness make decisions harder to justify? |
+| **Interpretability** | Are explanations stable across equally good models? |
+| **Robustness** | Are decisions stable under perturbations and model-selection choices? |
+| **LLM safety** | Are refusal behaviors supported by stable internal circuits or fragile alternatives? |
 
 ---
 
-## Why this matters for deployment
+## Related papers and artifacts
 
-In low-stakes applications, predictive multiplicity may be a tolerable nuisance. In high-stakes applications, it becomes a deployment risk.
-
-If two equally accurate models disagree on whether someone receives a loan, the decision is not fully explained by the data. It is partly explained by arbitrary choices in training or model selection. If a fairness intervention improves a group metric by shifting instability onto a subset of individuals, the intervention may look successful while creating a new form of harm. If a private model protects training data but makes decisions highly sensitive to privacy noise, the model may be difficult to justify in individual cases.
-
-The same logic applies to LLM safety. If a model refuses harmful requests under one prompt but relies on unstable circuits that collapse under a transformation, then average refusal rate is not enough. We need to understand the multiplicity of behaviors and mechanisms around the safety boundary.
-
-The practical implication is simple:
-
-> Models should be evaluated not only by how well they perform on average, but also by how stable their decisions and mechanisms are across the Rashomon set.
+| Research artifact | Role in the story | Link |
+|---|---|---|
+| **Rashomon Capacity** | Defines score-level predictive multiplicity. | [Paper](https://proceedings.neurips.cc/paper_files/paper/2022/file/ba4caa85ecdcafbf9102ab8ec384182d-Paper-Conference.pdf) · [Code](https://github.com/HsiangHsu/rashomon-capacity) |
+| **Arbitrary Decisions under Differential Privacy** | Shows privacy can introduce a hidden arbitrariness cost. | [Paper](https://dl.acm.org/doi/pdf/10.1145/3593013.3594103) · [Code](https://github.com/spring-epfl/dp_multiplicity) |
+| **Individual Arbitrariness and Group Fairness** | Shows fairness interventions can hide individual instability. | [Paper](https://proceedings.neurips.cc/paper_files/paper/2023/file/d891d240b5784656a0356bf4b00f5cdd-Paper-Conference.pdf) · [Code](https://github.com/Carol-Long/Fairness_and_Arbitrariness) |
+| **Dropout Rashomon Set Exploration** | Makes Rashomon set exploration efficient for neural networks. | [Paper](https://proceedings.iclr.cc/paper_files/paper/2024/file/8cd1ce03ea58b3d7dfd809e4d42f08ea-Paper-Conference.pdf) · [Code](https://github.com/jpmorganchase/dropout-rashomon-set-exploration) |
+| **RashomonGB** | Analyzes and mitigates predictive multiplicity in gradient boosting. | [Paper](https://proceedings.neurips.cc/paper_files/paper/2024/file/dbd07478c4aac41c0ce411e12f2e5a28-Paper-Conference.pdf) |
+| **Rashomon Circuit** | Extends Rashomon thinking to circuit-level instability in LLM safety. | [Code](https://github.com/HsiangHsu/rashomon-circuit) |
 
 ---
 
@@ -206,36 +218,19 @@ The practical implication is simple:
 
 ### Multiplicity-aware model cards
 
-Model cards should include predictive multiplicity statistics alongside accuracy, fairness, privacy, robustness, and calibration. For high-stakes systems, documentation should report which individuals, groups, or prompt regions are most exposed to arbitrary disagreement.
+Model documentation should report predictive multiplicity alongside accuracy, fairness, privacy, robustness, and calibration. For high-stakes systems, the key question is not only average performance, but which individuals, groups, or prompt regions are most exposed to arbitrary disagreement.
 
 ### Explanation multiplicity
 
-If equally accurate models produce different explanations, feature attributions, counterfactuals, or circuits, then interpretability itself has a Rashomon problem. Future work should measure not only prediction disagreement, but also explanation disagreement.
+If equally accurate models produce different explanations, feature attributions, counterfactuals, or circuits, interpretability itself has a Rashomon problem. Future work should measure not only prediction disagreement, but also explanation disagreement.
 
 ### Circuit-level Rashomon analysis for LLMs
 
-Rashomon Circuit can be extended from jailbreak settings to reasoning, factuality, tool use, refusal, and instruction following. A key question is whether output-stable prompts are also circuit-stable, or whether language models frequently reach the same answer through many unrelated internal routes.
+Rashomon Circuit can be extended from jailbreak settings to reasoning, factuality, tool use, refusal, and instruction following. A key question is whether output-stable prompts are also circuit-stable, or whether language models often reach the same answer through unrelated internal routes.
 
 ### Multiplicity-aware mitigation
 
-Mitigation should not simply average models blindly. The goal is to search the Rashomon set for models that are not only accurate, but also stable, fair, interpretable, robust, and safe. In this view, the Rashomon set is not only a risk. It is also a resource for alignment and model selection.
-
-### Knowledge uncertainty as an AI safety primitive
-
-In foundation models, uncertainty is not only about probability calibration. It is also about which knowledge source, internal feature, or circuit is being used. Understanding and controlling this uncertainty may become central to reliable inference-time steering, mechanistic auditing, and safe deployment.
-
----
-
-## Related papers and artifacts
-
-| Research artifact | Main contribution | Link |
-|---|---|---|
-| **Rashomon Capacity** | Measures score-level predictive multiplicity in probabilistic classification. | [Paper](https://proceedings.neurips.cc/paper_files/paper/2022/file/ba4caa85ecdcafbf9102ab8ec384182d-Paper-Conference.pdf) · [Code](https://github.com/HsiangHsu/rashomon-capacity) |
-| **Arbitrary Decisions under Differential Privacy** | Shows that differentially private training can introduce a hidden arbitrariness cost. | [Paper](https://dl.acm.org/doi/pdf/10.1145/3593013.3594103) |
-| **Individual Arbitrariness and Group Fairness** | Shows that fairness interventions can improve group metrics while increasing individual arbitrariness. | [Paper](https://proceedings.neurips.cc/paper_files/paper/2023/file/d891d240b5784656a0356bf4b00f5cdd-Paper-Conference.pdf) |
-| **Dropout Rashomon Set Exploration** | Uses inference-time dropout to efficiently explore neural-network Rashomon sets. | [Paper](https://proceedings.iclr.cc/paper_files/paper/2024/file/8cd1ce03ea58b3d7dfd809e4d42f08ea-Paper-Conference.pdf) · [Code](https://github.com/jpmorganchase/dropout-rashomon-set-exploration) |
-| **RashomonGB** | Analyzes and mitigates predictive multiplicity in gradient boosting. | [Paper](https://proceedings.neurips.cc/paper_files/paper/2024/file/dbd07478c4aac41c0ce411e12f2e5a28-Paper-Conference.pdf) |
-| **Rashomon Circuit** | Extends Rashomon thinking to circuit-level instability in LLM jailbreak behavior. | [Code](https://github.com/HsiangHsu/rashomon-circuit) |
+The goal is not simply to average models. The goal is to search the Rashomon set for models that are not only accurate, but also stable, fair, interpretable, robust, and safe. In this view, the Rashomon set is both a risk and a resource.
 
 ---
 
@@ -282,4 +277,4 @@ In foundation models, uncertainty is not only about probability calibration. It 
 
 ## One-line summary
 
-**Knowledge Uncertainty studies the hidden disagreement of machine learning systems: when many models, decisions, or circuits are equally plausible, responsible deployment requires measuring, explaining, and mitigating the arbitrariness that average metrics fail to reveal.**
+**Knowledge Uncertainty studies hidden disagreement in ML systems: when many models, decisions, explanations, or circuits are equally plausible, responsible deployment requires measuring and reducing the arbitrariness that average metrics fail to reveal.**
